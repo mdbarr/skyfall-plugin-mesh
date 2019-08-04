@@ -17,19 +17,68 @@ function Mesh(skyfall, options) {
     transmitted: 0
   };
 
-  const addConnection = (socket) => {
+  const addConnection = (socket, direction) => {
     const connection = {
       id: skyfall.utils.id(),
-      socket,
       address: socket.address(),
-      authenticated: false
+      direction,
+      authenticated: false,
+      ready: true
     };
 
+    skyfall.utils.hidden(connection, 'socket', socket);
+
+    skyfall.utils.hidden(connection, 'send', (data) => {
+      if (connection.ready) {
+        if (Buffer.isBuffer(data) || typeof data === 'string') {
+          connection.socket.write(data);
+        } else {
+          data = JSON.stringify(data);
+          connection.socket.write(data, (error) => {
+            if (error) {
+              console.log('write error');
+            }
+          });
+        }
+      }
+    });
+
+    skyfall.utils.hidden(connection, 'auth', () => {
+      connection.send({
+        object: 'authentication',
+        secret: configuration.secret,
+        identity: skyfall.config.identity,
+        bus: skyfall.events.id
+      });
+    });
+
+    socket.on('end', () => {
+      connection.ready = false;
+      if (connections.has(connection.id)) {
+        connections.delete(connection.id);
+      }
+    });
+
+    socket.on('error', (error) => {
+      connection.ready = false;
+      if (connections.has(connection.id)) {
+        connections.delete(connection.id);
+      }
+      skyfall.events.emit({
+        type: 'mesh:server:error',
+        data: error,
+        source: id
+      });
+    });
+
     socket.on('data', (data) => {
+      console.log('got data', data.toString());
       try {
         const event = JSON.parse(data);
-        if (!seen.has(event.id) && event.origin !== skyfall.events.id) {
-          seen.add(event.id);
+        console.log('got event');
+        console.pp(event);
+        if (!seen.has(event) && event.origin !== skyfall.events.id) {
+          seen.add(event);
           stats.received++;
           skyfall.events.emit(event);
         }
@@ -47,13 +96,11 @@ function Mesh(skyfall, options) {
   };
 
   skyfall.events.on('*', (event) => {
-    if (!seen.has(event.id)) {
-      seen.add(event.id);
-
-      const message = JSON.stringify(event);
+    if (!seen.has(event)) {
+      seen.add(event);
 
       for (const [ , connection ] of connections) {
-        connection.write(message);
+        connection.send(event);
         stats.transmitted++;
       }
     }
@@ -81,26 +128,12 @@ function Mesh(skyfall, options) {
       rejectUnauthorized: config.rejectUnauthorized !== undefined ?
         config.rejectUnauthorized : false
     }, () => {
-      socket.write({ authentication: configuration.secret });
+      const connection = addConnection(socket, 'outgoing');
 
-      socket.on('end', () => {
-        console.log('server ends connection');
-      });
-
-      socket.on('error', (error) => {
-        skyfall.events.emit({
-          type: 'mesh:server:error',
-          data: error,
-          source: id
-        });
-      });
-
-      const connection = addConnection(socket);
-
-      connections.set(id, connection);
+      connection.auth();
 
       if (typeof callback === 'function') {
-        return callback();
+        return callback(null);
       }
 
       return true;
@@ -120,9 +153,9 @@ function Mesh(skyfall, options) {
     const port = Number(config.port) || 7527;
     const secret = config.secret || skyfall.utils.id();
 
-    const key = config.key ? fs.readFileSync(config.key) : null;
+    const key = config.key ? fs.readFileSync(config.key).toString() : null;
     const cert = config.certificate || config.cert ?
-      fs.readFileSync(config.certificate || config.cert) : null;
+      fs.readFileSync(config.certificate || config.cert).toString() : null;
 
     Object.assign(configuration, {
       host,
@@ -158,19 +191,17 @@ function Mesh(skyfall, options) {
 
     skyfall.events.emit({
       type: 'mesh:server:starting',
-      data: this.configuration,
+      data: configuration,
       source: id
     });
 
-    this.server = tls.createServer(this.configuration, (socket) => {
-      console.log('server connected',
-        socket.authorized ? 'authorized' : 'unauthorized');
-      socket.write('welcome!\n');
-      socket.setEncoding('utf8');
-      socket.pipe(socket);
+    this.server = tls.createServer(configuration, (socket) => {
+      console.log('server connected', socket.authorized ? 'authorized' : 'unauthorized');
+
+      addConnection(socket, 'incoming');
     });
 
-    this.server.listen(this.configuration.port, this.configuration.host, (error) => {
+    this.server.listen(configuration.port, configuration.host, (error) => {
       if (error) {
         skyfall.events.emit({
           type: 'mesh:server:error',
@@ -186,16 +217,31 @@ function Mesh(skyfall, options) {
       }
       skyfall.events.emit({
         type: 'mesh:server:started',
-        data: this.configuration,
+        data: configuration,
         source: id
       });
 
       if (typeof callback === 'function') {
-        return callback();
+        return callback(null);
       }
       return true;
     });
 
+    return true;
+  };
+
+  this.stop = (callback) => {
+    for (const [ , connection ] of connections) {
+      console.log('ending');
+      console.pp(connection);
+      connection.socket.end();
+    }
+
+    if (this.server) {
+      return this.server.close(callback);
+    } else if (typeof callback === 'function') {
+      return callback(null);
+    }
     return true;
   };
 

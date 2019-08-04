@@ -8,9 +8,13 @@
   "license": "MIT",
   "private": false,
   "devDependencies": {
-    "eslint": "^6.1.0"
+    "@mdbarr/skyfall": "^0.1.6",
+    "barrkeep": "^2.2.4",
+    "eslint": "^6.1.0",
+    "jest": "^24.8.0"
   },
   "scripts": {
-    "lint": "eslint index.js"
+    "lint": "eslint index.js test/mesh.test.js",
+    "test": "jest"
   }
 }

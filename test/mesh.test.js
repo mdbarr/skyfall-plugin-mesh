@@ -36,6 +36,13 @@ describe('Skyfall Mesh Networking Test', () => {
     }, done);
   });
 
+  it('should receive authenticated event', (done) => {
+    skyfall.events.once('mesh:client:authenticated', (event) => {
+      console.pp(event);
+      done();
+    });
+  });
+
   it('should stop the mesh server', (done) => {
     skyfall.mesh.stop();
     setTimeout(done, 2500);

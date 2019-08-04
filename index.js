@@ -17,12 +17,13 @@ function Mesh(skyfall, options) {
     transmitted: 0
   };
 
-  const addConnection = (socket, direction) => {
+  const addConnection = (socket, direction, secret) => {
     const connection = {
       id: skyfall.utils.id(),
       address: socket.address(),
       direction,
-      authenticated: false,
+      secret,
+      authenticated: direction === 'outgoing',
       ready: true
     };
 
@@ -36,7 +37,7 @@ function Mesh(skyfall, options) {
           data = JSON.stringify(data);
           connection.socket.write(data, (error) => {
             if (error) {
-              console.log('write error');
+              connection.close();
             }
           });
         }
@@ -52,11 +53,22 @@ function Mesh(skyfall, options) {
       });
     });
 
-    socket.on('end', () => {
+    skyfall.utils.hidden(connection, 'close', () => {
       connection.ready = false;
       if (connections.has(connection.id)) {
         connections.delete(connection.id);
       }
+      socket.end();
+
+      skyfall.events.emit({
+        type: 'mesh:client:disconnected',
+        data: connection,
+        source: id
+      });
+    });
+
+    socket.on('end', () => {
+      connection.close();
     });
 
     socket.on('error', (error) => {
@@ -72,16 +84,9 @@ function Mesh(skyfall, options) {
     });
 
     socket.on('data', (data) => {
-      console.log('got data', data.toString());
+      let message;
       try {
-        const event = JSON.parse(data);
-        console.log('got event');
-        console.pp(event);
-        if (!seen.has(event) && event.origin !== skyfall.events.id) {
-          seen.add(event);
-          stats.received++;
-          skyfall.events.emit(event);
-        }
+        message = JSON.parse(data);
       } catch (error) {
         skyfall.events.emit({
           type: 'mesh:server:error',
@@ -89,19 +94,48 @@ function Mesh(skyfall, options) {
           source: id
         });
       }
+
+      if (connection.authenticated && message.object === 'event') {
+        if (!seen.has(message) && message.origin !== skyfall.events.id) {
+          seen.add(message);
+          stats.received++;
+          skyfall.events.emit(message);
+        }
+      } else if (message.object === 'authentication') {
+        if (message.secret === connection.secret) {
+          connection.authenticated = true;
+
+          skyfall.events.emit({
+            type: 'mesh:client:authenticated',
+            data: connection,
+            source: id
+          });
+        } else {
+          connection.socket.end();
+        }
+      }
     });
 
     connections.set(connection.id, connection);
+
+    skyfall.events.emit({
+      type: 'mesh:client:connected',
+      data: connection,
+      source: id
+    });
+
     return connection;
   };
 
   skyfall.events.on('*', (event) => {
-    if (!seen.has(event)) {
+    if (event.source !== id && !seen.has(event)) {
       seen.add(event);
 
       for (const [ , connection ] of connections) {
-        connection.send(event);
-        stats.transmitted++;
+        if (connection.authenticated) {
+          connection.send(event);
+          stats.transmitted++;
+        }
       }
     }
   });
@@ -128,7 +162,7 @@ function Mesh(skyfall, options) {
       rejectUnauthorized: config.rejectUnauthorized !== undefined ?
         config.rejectUnauthorized : false
     }, () => {
-      const connection = addConnection(socket, 'outgoing');
+      const connection = addConnection(socket, 'outgoing', config.secret || configuration.secret);
 
       connection.auth();
 
@@ -196,9 +230,7 @@ function Mesh(skyfall, options) {
     });
 
     this.server = tls.createServer(configuration, (socket) => {
-      console.log('server connected', socket.authorized ? 'authorized' : 'unauthorized');
-
-      addConnection(socket, 'incoming');
+      addConnection(socket, 'incoming', configuration.secret);
     });
 
     this.server.listen(configuration.port, configuration.host, (error) => {
@@ -232,9 +264,7 @@ function Mesh(skyfall, options) {
 
   this.stop = (callback) => {
     for (const [ , connection ] of connections) {
-      console.log('ending');
-      console.pp(connection);
-      connection.socket.end();
+      connection.close();
     }
 
     if (this.server) {

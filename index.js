@@ -101,9 +101,16 @@ function Mesh(skyfall, options) {
           stats.received++;
           skyfall.events.emit(message);
         }
+
+        for (const [ , client ] of connections) {
+          if (client.id !== connection.id) {
+            client.send(message);
+          }
+        }
       } else if (message.object === 'authentication') {
         if (message.secret === connection.secret) {
           connection.authenticated = true;
+          connection.authtentication = message;
 
           skyfall.events.emit({
             type: 'mesh:client:authenticated',

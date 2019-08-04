@@ -6,8 +6,7 @@ const tls = require('tls');
 function Mesh(skyfall, options) {
   const id = skyfall.utils.id();
 
-  const incoming = new Map();
-  const outgoing = new Map();
+  const connections = new Map();
   const seen = new WeakSet();
 
   let configured = false;
@@ -18,33 +17,102 @@ function Mesh(skyfall, options) {
     transmitted: 0
   };
 
-  this.connect = (config) => {
+  const addConnection = (socket) => {
+    const connection = {
+      id: skyfall.utils.id(),
+      socket,
+      address: socket.address(),
+      authenticated: false
+    };
+
+    socket.on('data', (data) => {
+      try {
+        const event = JSON.parse(data);
+        if (!seen.has(event.id) && event.origin !== skyfall.events.id) {
+          seen.add(event.id);
+          stats.received++;
+          skyfall.events.emit(event);
+        }
+      } catch (error) {
+        skyfall.events.emit({
+          type: 'mesh:server:error',
+          data: error,
+          source: id
+        });
+      }
+    });
+
+    connections.set(connection.id, connection);
+    return connection;
+  };
+
+  skyfall.events.on('*', (event) => {
+    if (!seen.has(event.id)) {
+      seen.add(event.id);
+
+      const message = JSON.stringify(event);
+
+      for (const [ , connection ] of connections) {
+        connection.write(message);
+        stats.transmitted++;
+      }
+    }
+  });
+
+  this.connect = (config, callback) => {
+    if (!configured) {
+      const error = new Error('mesh networking not configured');
+
+      skyfall.events.emit({
+        type: 'mesh:server:error',
+        data: error,
+        source: id
+      });
+
+      if (typeof callback === 'function') {
+        return callback(error);
+      }
+      return false;
+    }
+
     const socket = tls.connect({
       host: config.host || 'localhost',
       port: config.port || configuration.port,
       rejectUnauthorized: config.rejectUnauthorized !== undefined ?
         config.rejectUnauthorized : false
     }, () => {
+      socket.write({ authentication: configuration.secret });
 
+      socket.on('end', () => {
+        console.log('server ends connection');
+      });
+
+      socket.on('error', (error) => {
+        skyfall.events.emit({
+          type: 'mesh:server:error',
+          data: error,
+          source: id
+        });
+      });
+
+      const connection = addConnection(socket);
+
+      connections.set(id, connection);
+
+      if (typeof callback === 'function') {
+        return callback();
+      }
+
+      return true;
     });
 
-    socket.on('data', (data) => {
-      console.log(data);
+    skyfall.events.emit({
+      type: 'mesh:client:connecting',
+      data: config,
+      source: id
     });
 
-    socket.on('end', () => {
-      console.log('server ends connection');
-    });
-
-    socket.on('error', (error) => {
-      console.log(error);
-    });
-
-    const connection = {
-      socket,
-      address: socket.address(),
-      authenticated: false
-    };
+    return true;
   };
 
   this.configure = (config) => {
@@ -62,11 +130,8 @@ function Mesh(skyfall, options) {
       secret,
       key,
       cert,
-      get incoming() {
-        return incoming.size;
-      },
-      get outgoing() {
-        return outgoing.size;
+      get connections() {
+        return connections.size;
       }
     });
 
@@ -75,14 +140,19 @@ function Mesh(skyfall, options) {
     return configuration;
   };
 
-  this.start = () => {
+  this.start = (callback) => {
     if (!configured) {
+      const error = new Error('mesh networking not configured');
+
       skyfall.events.emit({
         type: 'mesh:server:error',
-        data: new Error('not configured'),
+        data: error,
         source: id
       });
 
+      if (typeof callback === 'function') {
+        return callback(error);
+      }
       return false;
     }
 
@@ -107,13 +177,23 @@ function Mesh(skyfall, options) {
           data: error,
           source: id
         });
-      } else {
-        skyfall.events.emit({
-          type: 'mesh:server:started',
-          data: this.configuration,
-          source: id
-        });
+
+        if (typeof callback === 'function') {
+          return callback(error);
+        }
+
+        return error;
       }
+      skyfall.events.emit({
+        type: 'mesh:server:started',
+        data: this.configuration,
+        source: id
+      });
+
+      if (typeof callback === 'function') {
+        return callback();
+      }
+      return true;
     });
 
     return true;

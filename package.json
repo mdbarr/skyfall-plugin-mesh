@@ -1,0 +1,16 @@
+{
+  "name": "@mdbarr/skyfall-plugin-mesh",
+  "version": "0.1.0",
+  "description": "Skyfall Mesh Networking Plugin",
+  "main": "index.js",
+  "repository": "git@github.com:mdbarr/skyfall-plugin-mesh.git",
+  "author": "Mark Barr <mark@hyperingenuity.com>",
+  "license": "MIT",
+  "private": false,
+  "devDependencies": {
+    "eslint": "^6.1.0"
+  },
+  "scripts": {
+    "lint": "eslint index.js"
+  }
+}

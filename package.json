@@ -8,7 +8,7 @@
   "license": "MIT",
   "private": false,
   "devDependencies": {
-    "@mdbarr/skyfall": "^0.1.6",
+    "@mdbarr/skyfall": "^0.2.0",
     "barrkeep": "^2.2.4",
     "eslint": "^6.1.0",
     "jest": "^24.8.0"

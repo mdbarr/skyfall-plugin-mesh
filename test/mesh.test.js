@@ -66,6 +66,7 @@ describe('Skyfall Mesh Networking Test', () => {
 
   it('should emit and receive an event', (done) => {
     third.events.once('test', (event) => {
+      expect(event.origin).toBe(second.events.id);
       console.pp(event);
       done();
     });

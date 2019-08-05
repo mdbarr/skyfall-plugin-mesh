@@ -1,7 +1,10 @@
 'use strict';
 
+const CIPHER_ALGORITHM = 'aes-256-cbc';
+
 const fs = require('fs');
 const tls = require('tls');
+const crypto = require('crypto');
 
 function Mesh(skyfall, options) {
   const id = skyfall.utils.id();
@@ -23,7 +26,8 @@ function Mesh(skyfall, options) {
       address: socket.address(),
       direction,
       secret,
-      authenticated: direction === 'outgoing',
+      authenticated: false,
+      challenge: crypto.randomBytes(32).toString('hex'),
       ready: true
     };
 
@@ -46,10 +50,8 @@ function Mesh(skyfall, options) {
 
     skyfall.utils.hidden(connection, 'auth', () => {
       connection.send({
-        object: 'authentication',
-        secret: configuration.secret,
-        identity: skyfall.config.identity,
-        bus: skyfall.events.id
+        object: 'challenge',
+        challenge: this.encrypt(connection.challenge, connection.secret)
       });
     });
 
@@ -107,19 +109,32 @@ function Mesh(skyfall, options) {
             client.send(message);
           }
         }
-      } else if (message.object === 'authentication') {
-        if (message.secret === connection.secret) {
-          connection.authenticated = true;
-          connection.authtentication = message;
-
-          skyfall.events.emit({
-            type: 'mesh:client:authenticated',
-            data: connection,
-            source: id
+      } else if (message.object === 'challenge') {
+        const answer = this.decrypt(message.challenge, connection.secret);
+        connection.send({
+          object: 'answer',
+          answer
+        });
+      } else if (message.object === 'answer') {
+        if (message.answer === connection.challenge) {
+          connection.send({
+            object: 'authenticated',
+            identity: skyfall.config.identity,
+            bus: skyfall.events.id
           });
+          connection.authenticated = true;
         } else {
-          connection.socket.end();
+          connection.close();
         }
+      } else if (message.object === 'authenticated') {
+        connection.peer = message;
+        skyfall.events.emit({
+          type: 'mesh:client:authenticated',
+          data: connection,
+          source: id
+        });
+      } else {
+        connection.socket.end();
       }
     });
 
@@ -130,6 +145,8 @@ function Mesh(skyfall, options) {
       data: connection,
       source: id
     });
+
+    connection.auth();
 
     return connection;
   };
@@ -171,10 +188,8 @@ function Mesh(skyfall, options) {
     }, () => {
       const connection = addConnection(socket, 'outgoing', config.secret || configuration.secret);
 
-      connection.auth();
-
       if (typeof callback === 'function') {
-        return callback(null);
+        return callback(null, connection);
       }
 
       return true;
@@ -286,6 +301,20 @@ function Mesh(skyfall, options) {
     this.configure(options);
   }
 }
+
+Mesh.prototype.encrypt = function(text, secret) {
+  const cipher = crypto.createCipher(CIPHER_ALGORITHM, secret);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return encrypted;
+};
+
+Mesh.prototype.decrypt = function(text, secret) {
+  const decipher = crypto.createDecipher(CIPHER_ALGORITHM, secret);
+  let deciphered = decipher.update(text, 'hex', 'utf8');
+  deciphered += decipher.final('utf8');
+  return deciphered;
+};
 
 module.exports = {
   name: 'mesh',

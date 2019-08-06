@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "@mdbarr/skyfall": "^0.2.0",
-    "barrkeep": "^2.2.4",
+    "barrkeep": "^2.2.5",
     "eslint": "^6.1.0",
     "jest": "^24.8.0"
   },

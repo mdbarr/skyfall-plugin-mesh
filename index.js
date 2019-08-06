@@ -1,7 +1,5 @@
 'use strict';
 
-const CIPHER_ALGORITHM = 'aes-256-cbc';
-
 const fs = require('fs');
 const tls = require('tls');
 const crypto = require('crypto');
@@ -41,6 +39,8 @@ function CircularSeen(capacity = 100) {
 
 function Mesh(skyfall, options) {
   const id = skyfall.utils.id();
+
+  this.algorithm = 'aes-256-cbc';
 
   const connections = new Map();
   const seen = new CircularSeen();
@@ -295,6 +295,8 @@ function Mesh(skyfall, options) {
   };
 
   this.configure = (config) => {
+    this.algorithm = config.algorithm || this.algorithm;
+
     const host = config.host || '0.0.0.0';
     const port = Number(config.port) || 7527;
     const secret = config.secret || skyfall.utils.id();
@@ -397,7 +399,7 @@ function Mesh(skyfall, options) {
 }
 
 Mesh.prototype.encrypt = function(text, secret) {
-  const cipher = crypto.createCipher(CIPHER_ALGORITHM, secret);
+  const cipher = crypto.createCipher(this.algorithm, secret);
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
 
@@ -405,7 +407,7 @@ Mesh.prototype.encrypt = function(text, secret) {
 };
 
 Mesh.prototype.decrypt = function(text, secret) {
-  const decipher = crypto.createDecipher(CIPHER_ALGORITHM, secret);
+  const decipher = crypto.createDecipher(this.algorithm, secret);
 
   let deciphered;
   try {

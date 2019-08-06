@@ -40,10 +40,15 @@ function CircularSeen(capacity = 100) {
 
 function Mesh(skyfall, options) {
   const id = skyfall.utils.id();
+  const version = require('./package').version;
 
   this.algorithm = 'aes-256-cbc';
   this.keepAlive = true;
   this.challengeSize = 32;
+
+  this.node = 'peer';
+  this.pattern = '*';
+  this.condition = {};
 
   const connections = new Map();
   const seen = new CircularSeen();
@@ -197,22 +202,32 @@ function Mesh(skyfall, options) {
           }
         } else if (message.object === 'authenticated') {
           connection.peer = {
+            skyfall: message.skyfall,
+            mesh: message.mesh,
             identity: message.identity,
-            bus: message.bus
+            bus: message.bus,
+            node: message.node,
+            pattern: message.pattern,
+            condition: message.condition
           };
-
+          console.pp(connection.peer);
           connection.authenticated = true;
           connection.state = 'authenticated';
 
           connection.send({
             object: 'authenticated',
+            skyfall: skyfall.version,
+            mesh: version,
             identity: skyfall.config.identity,
-            bus: skyfall.events.id
+            bus: skyfall.events.id,
+            node: this.node,
+            pattern: this.pattern,
+            condition: this.condition
           });
 
           skyfall.events.emit({
             type: 'mesh:peer:authenticated',
-            data: connection.client,
+            data: connection.peer,
             source: id
           });
 
@@ -229,22 +244,32 @@ function Mesh(skyfall, options) {
           if (message.answer === connection.challenge) {
             return connection.send({
               object: 'authenticated',
+              skyfall: skyfall.version,
+              mesh: version,
               identity: skyfall.config.identity,
-              bus: skyfall.events.id
+              bus: skyfall.events.id,
+              node: this.node,
+              pattern: this.pattern,
+              condition: this.condition
             });
           }
         } else if (message.object === 'authenticated') {
           connection.peer = {
+            skyfall: message.skyfall,
+            mesh: message.mesh,
             identity: message.identity,
-            bus: message.bus
+            bus: message.bus,
+            node: message.node,
+            pattern: message.pattern,
+            condition: message.condition
           };
-
+          console.pp(connection.peer);
           connection.authenticated = true;
           connection.state = 'authenticated';
 
           skyfall.events.emit({
             type: 'mesh:peer:authenticated',
-            data: connection.server,
+            data: connection.peer,
             source: id
           });
 
@@ -274,7 +299,7 @@ function Mesh(skyfall, options) {
     return connection;
   };
 
-  skyfall.events.on('*', (event) => {
+  skyfall.events.all((event) => {
     if (event.source !== id && !seen.has(event)) {
       seen.add(event);
 
@@ -329,6 +354,14 @@ function Mesh(skyfall, options) {
     this.algorithm = config.algorithm || this.algorithm;
     this.keepAlive = config.keepAlive !== undefined ? config.keepAlive : this.keepAlive;
     this.challengeSize = config.challengeSize || this.challengeSize;
+
+    if (config.peer) {
+      this.node = 'peer';
+    } else if (config.consumer) {
+      this.node = 'consumer';
+    } else if (config.producer) {
+      this.node = 'producer';
+    }
 
     const host = config.host || '0.0.0.0';
     const port = Number(config.port) || 7527;

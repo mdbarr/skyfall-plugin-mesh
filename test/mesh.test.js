@@ -43,9 +43,13 @@ describe('Skyfall Mesh Networking Test', () => {
     }, done);
   });
 
-  it('should receive authenticated event', (done) => {
-    first.events.once('mesh:client:authenticated', (event) => {
-      console.pp(event);
+  it('should attempt and fail to connect with a bad secret', (done) => {
+    third.mesh.connect({
+      host: 'localhost',
+      port: 7537,
+      secret: 'foooooo'
+    }, (error) => {
+      expect(error).not.toBeNull();
       done();
     });
   });
@@ -57,17 +61,9 @@ describe('Skyfall Mesh Networking Test', () => {
     }, done);
   });
 
-  it('should receive authenticated event', (done) => {
-    first.events.once('mesh:client:authenticated', (event) => {
-      console.pp(event);
-      done();
-    });
-  });
-
   it('should emit and receive an event', (done) => {
     third.events.once('test', (event) => {
       expect(event.origin).toBe(second.events.id);
-      console.pp(event);
       done();
     });
 

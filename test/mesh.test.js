@@ -25,8 +25,16 @@ describe('Skyfall Mesh Networking Test', () => {
 
   it('should configure the mesh plugin', () => {
     first.mesh.configure(config);
-    second.mesh.configure(config);
-    third.mesh.configure(config);
+
+    second.mesh.configure({
+      ...config,
+      producer: true
+    });
+
+    third.mesh.configure({
+      ...config,
+      consumer: true
+    });
   });
 
   it('should start the mesh server', (done) => {

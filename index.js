@@ -39,7 +39,7 @@ function CircularSeen(capacity = 100) {
 }
 
 function Mesh(skyfall, options) {
-  const id = skyfall.utils.id();
+  this.id = skyfall.utils.id();
 
   this.version = require('./package').version;
 
@@ -51,16 +51,15 @@ function Mesh(skyfall, options) {
   this.pattern = '*';
   this.condition = {};
 
-  const connections = new Map();
-  const seen = new CircularSeen();
-
-  let configured = false;
-  const configuration = { id };
-
-  const stats = {
+  this.stats = {
     received: 0,
     transmitted: 0
   };
+
+  const connections = new Map();
+
+  let configured = false;
+  const configuration = { id: this.id };
 
   const addConnection = ({
     socket, type, secret, callback
@@ -79,7 +78,8 @@ function Mesh(skyfall, options) {
       callbacks: {
         connected: this.once(callback),
         closed: []
-      }
+      },
+      seen: new CircularSeen()
     };
 
     skyfall.utils.hidden(connection, 'socket', socket);
@@ -120,7 +120,7 @@ function Mesh(skyfall, options) {
         skyfall.events.emit({
           type: 'mesh:peer:error',
           data: error,
-          source: id
+          source: this.id
         });
 
         return connection.callbacks.connected(error);
@@ -131,7 +131,7 @@ function Mesh(skyfall, options) {
         skyfall.events.emit({
           type: 'mesh:peer:error',
           data: error,
-          source: id
+          source: this.id
         });
 
         for (const done of connection.callbacks.closed) {
@@ -145,7 +145,7 @@ function Mesh(skyfall, options) {
       skyfall.events.emit({
         type: 'mesh:peer:disconnected',
         data: connection,
-        source: id
+        source: this.id
       });
 
       for (const done of connection.callbacks.closed) {
@@ -171,7 +171,7 @@ function Mesh(skyfall, options) {
         skyfall.events.emit({
           type: 'mesh:server:error',
           data: error,
-          source: id
+          source: this.id
         });
       }
 
@@ -181,16 +181,12 @@ function Mesh(skyfall, options) {
 
       if (connection.authenticated) {
         if (message.object === 'event' &&
-            !seen.has(message) && message.origin !== skyfall.events.id) {
-          seen.add(message);
-          stats.received++;
-          skyfall.events.emit(message);
+            !connection.seen.has(message) && message.origin !== skyfall.events.id) {
+          connection.seen.add(message);
 
-          for (const [ , client ] of connections) {
-            if (client.id !== connection.id && client.connected && client.authenticated) {
-              client.send(message);
-            }
-          }
+          this.stats.received++;
+
+          skyfall.events.emit(message);
         }
         return true;
       } else if (type === 'server') {
@@ -207,6 +203,8 @@ function Mesh(skyfall, options) {
           connection.authenticated = true;
           connection.state = 'authenticated';
 
+          this.listener(skyfall, connection);
+
           connection.send({
             object: 'authenticated',
             ...this.describe(skyfall)
@@ -215,7 +213,7 @@ function Mesh(skyfall, options) {
           skyfall.events.emit({
             type: 'mesh:peer:authenticated',
             data: connection.peer,
-            source: id
+            source: this.id
           });
 
           return connection.callbacks.connected(null, connection);
@@ -240,10 +238,12 @@ function Mesh(skyfall, options) {
           connection.authenticated = true;
           connection.state = 'authenticated';
 
+          this.listener(skyfall, connection);
+
           skyfall.events.emit({
             type: 'mesh:peer:authenticated',
             data: connection.peer,
-            source: id
+            source: this.id
           });
 
           return connection.callbacks.connected(null, connection);
@@ -258,7 +258,7 @@ function Mesh(skyfall, options) {
     skyfall.events.emit({
       type: 'mesh:peer:connected',
       data: connection,
-      source: id
+      source: this.id
     });
 
     if (connection.type === 'server') {
@@ -272,19 +272,6 @@ function Mesh(skyfall, options) {
     return connection;
   };
 
-  skyfall.events.all((event) => {
-    if (event.source !== id && !seen.has(event)) {
-      seen.add(event);
-
-      for (const [ , connection ] of connections) {
-        if (connection.state === 'authenticated') {
-          connection.send(event);
-          stats.transmitted++;
-        }
-      }
-    }
-  });
-
   this.connect = (config, callback) => {
     callback = this.callback(callback);
 
@@ -294,7 +281,7 @@ function Mesh(skyfall, options) {
       skyfall.events.emit({
         type: 'mesh:server:error',
         data: error,
-        source: id
+        source: this.id
       });
 
       return callback(error);
@@ -317,7 +304,7 @@ function Mesh(skyfall, options) {
     skyfall.events.emit({
       type: 'mesh:peer:connecting',
       data: config,
-      source: id
+      source: this.id
     });
 
     return true;
@@ -369,7 +356,7 @@ function Mesh(skyfall, options) {
       skyfall.events.emit({
         type: 'mesh:server:error',
         data: error,
-        source: id
+        source: this.id
       });
 
       return callback(error);
@@ -378,7 +365,7 @@ function Mesh(skyfall, options) {
     skyfall.events.emit({
       type: 'mesh:server:starting',
       data: configuration,
-      source: id
+      source: this.id
     });
 
     this.server = tls.createServer(configuration, (socket) => {
@@ -394,7 +381,7 @@ function Mesh(skyfall, options) {
         skyfall.events.emit({
           type: 'mesh:server:error',
           data: error,
-          source: id
+          source: this.id
         });
 
         return callback(error);
@@ -403,7 +390,7 @@ function Mesh(skyfall, options) {
       skyfall.events.emit({
         type: 'mesh:server:started',
         data: configuration,
-        source: id
+        source: this.id
       });
 
       return callback(null);
@@ -506,6 +493,32 @@ Mesh.prototype.peer = function(message) {
     pattern: message.pattern,
     condition: message.condition
   };
+};
+
+Mesh.prototype.listener = function(skyfall, connection) {
+  if (connection.peer.node === 'peer') {
+    skyfall.events.all((event) => {
+      if (event.source !== this.id && !connection.seen.has(event)) {
+        connection.seen.add(event);
+
+        if (connection.connected) {
+          connection.send(event);
+          this.stats.transmitted++;
+        }
+      }
+    });
+  } else if (connection.peer.node === 'consumer') {
+    skyfall.events.on(connection.peer.pattern, connection.peer.condition, (event) => {
+      if (event.source !== this.id && !connection.seen.has(event)) {
+        connection.seen.add(event);
+
+        if (connection.connected) {
+          connection.send(event);
+          this.stats.transmitted++;
+        }
+      }
+    });
+  }
 };
 
 module.exports = {

@@ -17,7 +17,7 @@
     "jest": "^24.8.0"
   },
   "scripts": {
-    "lint": "eslint index.js test/mesh.test.js",
-    "test": "jest"
+    "lint": "eslint --cache index.js test/mesh.test.js",
+    "test": "yarn lint && jest"
   }
 }

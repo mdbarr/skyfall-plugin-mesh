@@ -41,6 +41,7 @@ function Mesh(skyfall, options) {
   const id = skyfall.utils.id();
 
   this.algorithm = 'aes-256-cbc';
+  this.keepAlive = true;
 
   const connections = new Map();
   const seen = new CircularSeen();
@@ -56,6 +57,8 @@ function Mesh(skyfall, options) {
   const addConnection = ({
     socket, type, secret, callback
   }) => {
+    socket.setKeepAlive(this.keepAlive);
+
     const connection = {
       id: skyfall.utils.id(),
       address: socket.address(),
@@ -296,6 +299,7 @@ function Mesh(skyfall, options) {
 
   this.configure = (config) => {
     this.algorithm = config.algorithm || this.algorithm;
+    this.keepAlive = config.keepAlive !== undefined ? config.keepAlive : true;
 
     const host = config.host || '0.0.0.0';
     const port = Number(config.port) || 7527;

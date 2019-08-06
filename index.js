@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const tls = require('tls');
+const async = require('async');
 const crypto = require('crypto');
 
 function CircularSeen(capacity = 100) {
@@ -64,42 +65,50 @@ function Mesh(skyfall, options) {
       address: socket.address(),
       type,
       secret,
-      state: 'connected',
+      connected: true,
+      authenticated: false,
+      state: 'authenticating',
       challenge: crypto.randomBytes(32).toString('hex'),
-      ready: true
+      callbacks: {
+        connected: this.once(callback),
+        closed: []
+      }
     };
-
-    callback = this.once(callback);
 
     skyfall.utils.hidden(connection, 'socket', socket);
 
     skyfall.utils.hidden(connection, 'send', (data) => {
-      if (connection.ready) {
+      if (connection.connected) {
         if (Buffer.isBuffer(data) || typeof data === 'string') {
           connection.socket.write(data);
         } else {
           data = JSON.stringify(data);
-          connection.socket.write(data, (error) => {
-            if (error) {
-              connection.close();
-            }
-          });
+          connection.socket.write(data);
         }
       }
     });
 
-    skyfall.utils.hidden(connection, 'close', this.once(() => {
-      connection.ready = false;
+    skyfall.utils.hidden(connection, 'close', (done) => {
+      done = this.callback(done);
+
+      if (!connection.connected) {
+        return done();
+      }
+      connection.callbacks.closed.push(done);
+      return socket.end();
+    });
+
+    socket.on('close', (hadError) => {
+      connection.connected = false;
+
       if (connections.has(connection.id)) {
         connections.delete(connection.id);
       }
 
-      if (!socket.ended) {
-        socket.end();
-      }
+      if (!connection.authenticated) {
+        connection.state = 'failed';
 
-      if (connection.state === 'connected') {
-        const error = new Error('protocol error');
+        const error = new Error('authentication failed');
 
         skyfall.events.emit({
           type: 'mesh:peer:error',
@@ -107,8 +116,24 @@ function Mesh(skyfall, options) {
           source: id
         });
 
-        return callback(error);
+        return connection.callbacks.connected(error);
+      } else if (hadError) {
+        connection.state = 'error';
+        const error = connection.error || new Error('protocol error');
+
+        skyfall.events.emit({
+          type: 'mesh:peer:error',
+          data: error,
+          source: id
+        });
+
+        for (const done of connection.callbacks.closed) {
+          done(error);
+        }
+        return true;
       }
+
+      connection.state = 'closed';
 
       skyfall.events.emit({
         type: 'mesh:peer:disconnected',
@@ -116,24 +141,19 @@ function Mesh(skyfall, options) {
         source: id
       });
 
+      for (const done of connection.callbacks.closed) {
+        done(null);
+      }
       return true;
-    }));
+    });
 
     socket.on('end', () => {
-      socket.ended = true;
-      connection.close();
+      connection.stating = 'closing';
     });
 
     socket.on('error', (error) => {
-      connection.ready = false;
-      if (connections.has(connection.id)) {
-        connections.delete(connection.id);
-      }
-      skyfall.events.emit({
-        type: 'mesh:server:error',
-        data: error,
-        source: id
-      });
+      connection.state = 'error';
+      connection.error = error;
     });
 
     socket.on('data', (data) => {
@@ -148,7 +168,11 @@ function Mesh(skyfall, options) {
         });
       }
 
-      if (connection.state === 'authenticated') {
+      if (!message) {
+        return connection.close();
+      }
+
+      if (connection.authenticated) {
         if (message.object === 'event' &&
             !seen.has(message) && message.origin !== skyfall.events.id) {
           seen.add(message);
@@ -156,7 +180,7 @@ function Mesh(skyfall, options) {
           skyfall.events.emit(message);
 
           for (const [ , client ] of connections) {
-            if (client.id !== connection.id && connection.ready) {
+            if (client.id !== connection.id && client.connected && client.authenticated) {
               client.send(message);
             }
           }
@@ -175,6 +199,8 @@ function Mesh(skyfall, options) {
             identity: message.identity,
             bus: message.bus
           };
+
+          connection.authenticated = true;
           connection.state = 'authenticated';
 
           connection.send({
@@ -189,7 +215,7 @@ function Mesh(skyfall, options) {
             source: id
           });
 
-          return callback(null, connection);
+          return connection.callbacks.connected(null, connection);
         }
       } else if (type === 'client') {
         if (message.object === 'challenge') {
@@ -211,6 +237,8 @@ function Mesh(skyfall, options) {
             identity: message.identity,
             bus: message.bus
           };
+
+          connection.authenticated = true;
           connection.state = 'authenticated';
 
           skyfall.events.emit({
@@ -219,7 +247,7 @@ function Mesh(skyfall, options) {
             source: id
           });
 
-          return callback(null, connection);
+          return connection.callbacks.connected(null, connection);
         }
       }
 
@@ -229,7 +257,7 @@ function Mesh(skyfall, options) {
     connections.set(connection.id, connection);
 
     skyfall.events.emit({
-      type: 'mesh:client:connected',
+      type: 'mesh:peer:connected',
       data: connection,
       source: id
     });
@@ -259,6 +287,8 @@ function Mesh(skyfall, options) {
   });
 
   this.connect = (config, callback) => {
+    callback = this.callback(callback);
+
     if (!configured) {
       const error = new Error('mesh networking not configured');
 
@@ -268,10 +298,7 @@ function Mesh(skyfall, options) {
         source: id
       });
 
-      if (typeof callback === 'function') {
-        return callback(error);
-      }
-      return false;
+      return callback(error);
     }
 
     const socket = tls.connect({
@@ -289,7 +316,7 @@ function Mesh(skyfall, options) {
     });
 
     skyfall.events.emit({
-      type: 'mesh:client:connecting',
+      type: 'mesh:peer:connecting',
       data: config,
       source: id
     });
@@ -326,6 +353,8 @@ function Mesh(skyfall, options) {
   };
 
   this.start = (callback) => {
+    callback = this.callback(callback);
+
     if (!configured) {
       const error = new Error('mesh networking not configured');
 
@@ -335,10 +364,7 @@ function Mesh(skyfall, options) {
         source: id
       });
 
-      if (typeof callback === 'function') {
-        return callback(error);
-      }
-      return false;
+      return callback(error);
     }
 
     skyfall.events.emit({
@@ -363,38 +389,37 @@ function Mesh(skyfall, options) {
           source: id
         });
 
-        if (typeof callback === 'function') {
-          return callback(error);
-        }
-
-        return error;
+        return callback(error);
       }
+
       skyfall.events.emit({
         type: 'mesh:server:started',
         data: configuration,
         source: id
       });
 
-      if (typeof callback === 'function') {
-        return callback(null);
-      }
-      return true;
+      return callback(null);
     });
 
     return true;
   };
 
   this.stop = (callback) => {
+    callback = this.callback(callback);
+    const tasks = [];
+
     for (const [ , connection ] of connections) {
-      connection.close();
+      tasks.push(connection.close);
     }
 
-    if (this.server) {
-      return this.server.close(callback);
-    } else if (typeof callback === 'function') {
-      return callback(null);
-    }
-    return true;
+    return async.series(tasks, () => {
+      if (this.server) {
+        return this.server.close(() => {
+          return callback();
+        });
+      }
+      return callback();
+    });
   };
 
   if (Object.keys(options).length) {
@@ -422,6 +447,13 @@ Mesh.prototype.decrypt = function(text, secret) {
   }
 
   return deciphered;
+};
+
+Mesh.prototype.callback = function(callback) {
+  if (typeof callback !== 'function') {
+    return () => { return true; };
+  }
+  return callback;
 };
 
 Mesh.prototype.once = function(func) {

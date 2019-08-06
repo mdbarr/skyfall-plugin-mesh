@@ -7,6 +7,9 @@
   "author": "Mark Barr <mark@hyperingenuity.com>",
   "license": "MIT",
   "private": false,
+  "dependencies": {
+    "async": "^3.1.0"
+  },
   "devDependencies": {
     "@mdbarr/skyfall": "^0.2.0",
     "barrkeep": "^2.2.4",

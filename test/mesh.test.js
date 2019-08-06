@@ -73,10 +73,15 @@ describe('Skyfall Mesh Networking Test', () => {
     });
   });
 
-  it('should stop the mesh servers', (done) => {
-    first.mesh.stop();
-    second.mesh.stop();
-    third.mesh.stop();
-    setTimeout(done, 2500);
+  it('should stop the first mesh server', (done) => {
+    first.mesh.stop(done);
+  });
+
+  it('should stop the second mesh server', (done) => {
+    second.mesh.stop(done);
+  });
+
+  it('should stop the third mesh server', (done) => {
+    third.mesh.stop(done);
   });
 });

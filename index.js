@@ -43,6 +43,7 @@ function Mesh(skyfall, options) {
 
   this.algorithm = 'aes-256-cbc';
   this.keepAlive = true;
+  this.challengeSize = 32;
 
   const connections = new Map();
   const seen = new CircularSeen();
@@ -68,7 +69,7 @@ function Mesh(skyfall, options) {
       connected: true,
       authenticated: false,
       state: 'authenticating',
-      challenge: crypto.randomBytes(32).toString('hex'),
+      challenge: this.challenge(),
       callbacks: {
         connected: this.once(callback),
         closed: []
@@ -326,7 +327,8 @@ function Mesh(skyfall, options) {
 
   this.configure = (config) => {
     this.algorithm = config.algorithm || this.algorithm;
-    this.keepAlive = config.keepAlive !== undefined ? config.keepAlive : true;
+    this.keepAlive = config.keepAlive !== undefined ? config.keepAlive : this.keepAlive;
+    this.challengeSize = config.challengeSize || this.challengeSize;
 
     const host = config.host || '0.0.0.0';
     const port = Number(config.port) || 7527;
@@ -426,6 +428,10 @@ function Mesh(skyfall, options) {
     this.configure(options);
   }
 }
+
+Mesh.prototype.challenge = function() {
+  return crypto.randomBytes(this.challengeSize).toString('hex');
+};
 
 Mesh.prototype.encrypt = function(text, secret) {
   const cipher = crypto.createCipher(this.algorithm, secret);

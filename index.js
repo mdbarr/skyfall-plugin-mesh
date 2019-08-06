@@ -6,11 +6,44 @@ const fs = require('fs');
 const tls = require('tls');
 const crypto = require('crypto');
 
+function CircularSeen(capacity = 100) {
+  const seen = new Array(capacity);
+  const set = new WeakSet();
+
+  let start = 0;
+  let size = 0;
+
+  this.size = () => { return size; };
+
+  this.add = (item) => {
+    if (start > 0) {
+      start--;
+    } else {
+      start = capacity - 1;
+    }
+
+    if (seen[start]) {
+      set.delete(seen[start]);
+    }
+
+    seen[start] = item;
+    set.add(item);
+
+    if (size < capacity) {
+      size++;
+    }
+  };
+
+  this.has = (item) => {
+    return set.has(item);
+  };
+}
+
 function Mesh(skyfall, options) {
   const id = skyfall.utils.id();
 
   const connections = new Map();
-  const seen = new WeakSet();
+  const seen = new CircularSeen();
 
   let configured = false;
   const configuration = { id };

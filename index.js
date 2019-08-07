@@ -360,6 +360,16 @@ function Mesh(skyfall, options) {
       });
 
       return callback(error);
+    } else if (this.node !== 'peer') {
+      const error = new Error('mesh server can only be started for "peer" nodes');
+
+      skyfall.events.emit({
+        type: 'mesh:server:error',
+        data: error,
+        source: this.id
+      });
+
+      return callback(error);
     }
 
     skyfall.events.emit({

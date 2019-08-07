@@ -56,6 +56,8 @@ function Mesh(skyfall, options) {
     transmitted: 0
   };
 
+  this.heartbeatInterval = 60000;
+
   const connections = new Map();
 
   let configured = false;
@@ -314,6 +316,7 @@ function Mesh(skyfall, options) {
     this.algorithm = config.algorithm || this.algorithm;
     this.keepAlive = config.keepAlive !== undefined ? config.keepAlive : this.keepAlive;
     this.challengeSize = config.challengeSize || this.challengeSize;
+    this.heartbeatInterval = Number(config.heartbeatInterval) || this.heartbeatInterval;
 
     if (config.peer) {
       this.node = 'peer';
@@ -343,6 +346,27 @@ function Mesh(skyfall, options) {
     });
 
     configured = true;
+
+    if (this.interval) {
+      clearInterval(this.interval);
+    }
+
+    this.heartbeat = () => {
+      skyfall.events.emit({
+        type: 'mesh:peer:heartbeat',
+        data: {
+          identity: skyfall.config.identity,
+          bus: skyfall.events.id,
+          node: this.node,
+          stats: this.stats,
+          connections: connections.size
+        }
+      });
+    };
+
+    this.interval = setInterval(this.heartbeat, this.heartbeatInterval);
+
+    this.heartbeat();
 
     return configuration;
   };

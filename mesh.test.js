@@ -43,15 +43,15 @@ describe('Skyfall Mesh Networking Test', () => {
 
   it('should connect the second to the first mesh server', (done) => {
     second.mesh.connect({
-      host: 'localhost',
-      port: 7537
+      remoteHost: 'localhost',
+      remotePort: 7537
     }, done);
   });
 
   it('should attempt and fail to connect with a bad secret', (done) => {
     third.mesh.connect({
-      host: 'localhost',
-      port: 7537,
+      remoteHost: 'localhost',
+      remotePort: 7537,
       secret: 'foooooo'
     }, (error) => {
       expect(error).not.toBeNull();
@@ -61,8 +61,8 @@ describe('Skyfall Mesh Networking Test', () => {
 
   it('should connect the third to the first mesh server', (done) => {
     third.mesh.connect({
-      host: 'localhost',
-      port: 7537
+      remoteHost: 'localhost',
+      remotePort: 7537
     }, done);
   });
 

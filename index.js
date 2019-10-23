@@ -290,8 +290,8 @@ function Mesh(skyfall, options) {
     }
 
     const socket = tls.connect({
-      host: config.host || 'localhost',
-      port: config.port || configuration.port,
+      host: config.remoteHost || 'localhost',
+      port: config.remotePort || configuration.port,
       rejectUnauthorized: config.rejectUnauthorized !== undefined ?
         config.rejectUnauthorized : false
     }, () => {

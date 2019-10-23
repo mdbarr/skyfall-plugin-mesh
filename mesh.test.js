@@ -1,7 +1,6 @@
 'use strict';
 
 require('barrkeep/pp');
-const path = require('path');
 const Skyfall = require('@mdbarr/skyfall');
 
 const first = new Skyfall({ api: { port: 0 } });
@@ -11,16 +10,14 @@ const third = new Skyfall({ api: { port: 0 } });
 const config = {
   host: '0.0.0.0',
   port: 7537,
-  secret: 'bc6383f0-b6e7-11e9-9f74-0348351cafd3',
-  key: path.join(__dirname, 'mesh.test.key.pem'),
-  cert: path.join(__dirname, 'mesh.test.cert.pem')
+  secret: 'bc6383f0-b6e7-11e9-9f74-0348351cafd3'
 };
 
 describe('Skyfall Mesh Networking Test', () => {
   it('should register the mesh plugin', () => {
-    first.use(require('../index'));
-    second.use(require('../index'));
-    third.use(require('../index'));
+    first.use(require('./index'));
+    second.use(require('./index'));
+    third.use(require('./index'));
   });
 
   it('should configure the mesh plugin', () => {

@@ -1,9 +1,9 @@
 'use strict';
 
-const fs = require('fs');
 const tls = require('tls');
 const async = require('async');
 const crypto = require('crypto');
+const selfsigned = require('selfsigned');
 
 function CircularSeen(capacity = 100) {
   const seen = new Array(capacity);
@@ -326,13 +326,31 @@ function Mesh(skyfall, options) {
       this.node = 'producer';
     }
 
+    if (config.pattern) {
+      this.pattern = config.pattern;
+    }
+
+    if (config.condition || config.filter) {
+      this.condition = config.condition || config.filter;
+    }
+
     const host = config.host || '0.0.0.0';
     const port = Number(config.port) || 7527;
     const secret = config.secret || skyfall.utils.id();
 
-    const key = config.key ? fs.readFileSync(config.key).toString() : null;
-    const cert = config.certificate || config.cert ?
-      fs.readFileSync(config.certificate || config.cert).toString() : null;
+    if (!config.key || !(config.cert || config.certificate)) {
+      const attributes = [ {
+        name: 'commonName',
+        value: config.commonName || 'hyperingenuity.com'
+      } ];
+      const pems = selfsigned.generate(attributes, { days: 365 });
+
+      config.key = pems.private;
+      config.cert = pems.cert;
+    }
+
+    const key = config.key;
+    const cert = config.cert || config.certificate;
 
     Object.assign(configuration, {
       host,

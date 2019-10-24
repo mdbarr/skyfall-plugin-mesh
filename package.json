@@ -19,7 +19,7 @@
     "uuid": "^3.3.3"
   },
   "scripts": {
-    "lint": "eslint --cache index.js mesh.test.js",
+    "lint": "eslint --cache index.js circularSeen.js mesh.test.js seen.test.js",
     "test": "yarn lint && jest"
   }
 }

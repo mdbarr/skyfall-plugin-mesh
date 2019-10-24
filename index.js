@@ -553,7 +553,7 @@ Mesh.prototype.peer = function(message) {
 Mesh.prototype.listener = function(skyfall, connection) {
   if (connection.peer.node === 'peer') {
     skyfall.events.all((event) => {
-      if (event.source !== this.id && !connection.seen.has(event.id)) {
+      if (!connection.seen.has(event.id)) {
         connection.seen.add(event.id);
 
         if (connection.connected) {
@@ -564,7 +564,7 @@ Mesh.prototype.listener = function(skyfall, connection) {
     });
   } else if (connection.peer.node === 'consumer') {
     skyfall.events.on(connection.peer.pattern, connection.peer.condition, (event) => {
-      if (event.source !== this.id && !connection.seen.has(event.id)) {
+      if (!connection.seen.has(event.id)) {
         connection.seen.add(event.id);
 
         if (connection.connected) {

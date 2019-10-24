@@ -1,6 +1,7 @@
 'use strict';
 
 require('barrkeep/pp');
+const uuid = require('uuid/v4');
 const Skyfall = require('@mdbarr/skyfall');
 
 const first = new Skyfall({ api: { port: 0 } });
@@ -10,7 +11,7 @@ const third = new Skyfall({ api: { port: 0 } });
 const config = {
   host: '0.0.0.0',
   port: 7537,
-  secret: 'bc6383f0-b6e7-11e9-9f74-0348351cafd3'
+  secret: uuid()
 };
 
 describe('Skyfall Mesh Networking Test', () => {
@@ -75,6 +76,42 @@ describe('Skyfall Mesh Networking Test', () => {
     second.events.emit({
       type: 'test',
       data: 'foo'
+    });
+  });
+
+  it('should emit and receive a second event', (done) => {
+    third.events.once('test:2', (event) => {
+      expect(event.origin).toBe(second.events.id);
+      done();
+    });
+
+    second.events.emit({
+      type: 'test:2',
+      data: 'second'
+    });
+  });
+
+  it('should emit and receive a third event', (done) => {
+    third.events.once('test:3', (event) => {
+      expect(event.origin).toBe(second.events.id);
+      done();
+    });
+
+    second.events.emit({
+      type: 'test:3',
+      data: 'third'
+    });
+  });
+
+  it('should emit and receive a fourth event', (done) => {
+    third.events.once('test:4', (event) => {
+      expect(event.origin).toBe(first.events.id);
+      done();
+    });
+
+    first.events.emit({
+      type: 'test:4',
+      data: 'four'
     });
   });
 

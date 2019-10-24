@@ -7,14 +7,14 @@ const selfsigned = require('selfsigned');
 
 function CircularSeen(capacity = 100) {
   const seen = new Array(capacity);
-  const set = new WeakSet();
+  const set = new Set();
 
   let start = 0;
   let size = 0;
 
   this.size = () => { return size; };
 
-  this.add = (item) => {
+  this.add = (id) => {
     if (start > 0) {
       start--;
     } else {
@@ -25,16 +25,16 @@ function CircularSeen(capacity = 100) {
       set.delete(seen[start]);
     }
 
-    seen[start] = item;
-    set.add(item);
+    seen[start] = id;
+    set.add(id);
 
     if (size < capacity) {
       size++;
     }
   };
 
-  this.has = (item) => {
-    return set.has(item);
+  this.has = (id) => {
+    return set.has(id);
   };
 }
 
@@ -178,13 +178,16 @@ function Mesh(skyfall, options) {
       }
 
       if (!message) {
-        return connection.close();
+        if (!connection.authenticated) {
+          return connection.close();
+        }
+        return false;
       }
 
       if (connection.authenticated) {
         if (message.object === 'event' &&
-            !connection.seen.has(message) && message.origin !== skyfall.events.id) {
-          connection.seen.add(message);
+            !connection.seen.has(message.id) && message.origin !== skyfall.events.id) {
+          connection.seen.add(message.id);
 
           this.stats.received++;
 
@@ -550,8 +553,8 @@ Mesh.prototype.peer = function(message) {
 Mesh.prototype.listener = function(skyfall, connection) {
   if (connection.peer.node === 'peer') {
     skyfall.events.all((event) => {
-      if (event.source !== this.id && !connection.seen.has(event)) {
-        connection.seen.add(event);
+      if (event.source !== this.id && !connection.seen.has(event.id)) {
+        connection.seen.add(event.id);
 
         if (connection.connected) {
           connection.send(event);
@@ -561,8 +564,8 @@ Mesh.prototype.listener = function(skyfall, connection) {
     });
   } else if (connection.peer.node === 'consumer') {
     skyfall.events.on(connection.peer.pattern, connection.peer.condition, (event) => {
-      if (event.source !== this.id && !connection.seen.has(event)) {
-        connection.seen.add(event);
+      if (event.source !== this.id && !connection.seen.has(event.id)) {
+        connection.seen.add(event.id);
 
         if (connection.connected) {
           connection.send(event);

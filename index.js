@@ -58,9 +58,15 @@ function Mesh(skyfall, options) {
       if (connection.connected) {
         if (Buffer.isBuffer(data) || typeof data === 'string') {
           connection.socket.write(data);
+        } else if (data && typeof data === 'object') {
+          try {
+            data = JSON.stringify(data);
+            connection.socket.write(data);
+          } catch (error) {
+            console.log('Error in mesh send', error, data);
+          }
         } else {
-          data = JSON.stringify(data);
-          connection.socket.write(data);
+          console.log('Unknown data type in send', data);
         }
       }
     });

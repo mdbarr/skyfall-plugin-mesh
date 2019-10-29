@@ -161,7 +161,7 @@ function Mesh(skyfall, options) {
       }
 
       if (connection.authenticated) {
-        if (message.object === 'event' &&
+        if (this.role !== 'producer' && message.object === 'event' &&
             !connection.seen.has(message.id) && message.origin !== skyfall.events.id) {
           connection.seen.add(message.id);
 
@@ -539,28 +539,30 @@ Mesh.prototype.peer = function(message) {
 };
 
 Mesh.prototype.listener = function(skyfall, connection) {
-  if (connection.peer.node === 'peer') {
-    skyfall.events.all((event) => {
-      if (!connection.seen.has(event.id)) {
-        connection.seen.add(event.id);
+  if (this.node !== 'consumer') {
+    if (connection.peer.node === 'peer') {
+      skyfall.events.all((event) => {
+        if (!connection.seen.has(event.id)) {
+          connection.seen.add(event.id);
 
-        if (connection.connected) {
-          connection.send(event);
-          this.stats.transmitted++;
+          if (connection.connected) {
+            connection.send(event);
+            this.stats.transmitted++;
+          }
         }
-      }
-    });
-  } else if (connection.peer.node === 'consumer') {
-    skyfall.events.on(connection.peer.pattern, connection.peer.condition, (event) => {
-      if (!connection.seen.has(event.id)) {
-        connection.seen.add(event.id);
+      });
+    } else if (connection.peer.node === 'consumer') {
+      skyfall.events.on(connection.peer.pattern, connection.peer.condition, (event) => {
+        if (!connection.seen.has(event.id)) {
+          connection.seen.add(event.id);
 
-        if (connection.connected) {
-          connection.send(event);
-          this.stats.transmitted++;
+          if (connection.connected) {
+            connection.send(event);
+            this.stats.transmitted++;
+          }
         }
-      }
-    });
+      });
+    }
   }
 };
 

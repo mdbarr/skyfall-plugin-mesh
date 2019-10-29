@@ -6,6 +6,8 @@ const crypto = require('crypto');
 const selfsigned = require('selfsigned');
 const CircularSeen = require('./circularSeen');
 
+const IV_LENGTH = 16;
+
 function Mesh(skyfall, options) {
   this.id = skyfall.utils.id();
 
@@ -456,25 +458,37 @@ Mesh.prototype.challenge = function() {
 };
 
 Mesh.prototype.encrypt = function(text, secret) {
-  const cipher = crypto.createCipher(this.algorithm, secret);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
+  let encrypted = null;
+  try {
+    secret = secret.replace(/-/g, '').substring(0, 32);
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv(this.algorithm, secret, iv);
+    encrypted = cipher.update(text);
+    encrypted = Buffer.concat([ encrypted, cipher.final() ]);
+    encrypted = `${ iv.toString('hex') }:${ encrypted.toString('hex') }`;
+  } catch (error) {
+    console.log('Mesh encrypt error', error);
+  }
 
   return encrypted;
 };
 
 Mesh.prototype.decrypt = function(text, secret) {
-  const decipher = crypto.createDecipher(this.algorithm, secret);
-
-  let deciphered;
+  let decrypted = null;
   try {
-    deciphered = decipher.update(text, 'hex', 'utf8');
-    deciphered += decipher.final('utf8');
+    secret = secret.replace(/-/g, '').substring(0, 32);
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift(), 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const decipher = crypto.createDecipheriv(this.algorithm, secret, iv);
+    decrypted = decipher.update(encryptedText);
+
+    decrypted = Buffer.concat([ decrypted, decipher.final() ]).toString();
   } catch (error) {
-    deciphered = false;
+    console.log('Mesh decrypt error', error);
   }
 
-  return deciphered;
+  return decrypted;
 };
 
 Mesh.prototype.callback = function(callback) {

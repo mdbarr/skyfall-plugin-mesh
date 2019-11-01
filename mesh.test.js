@@ -2,6 +2,7 @@
 
 require('barrkeep/pp');
 const uuid = require('uuid/v4');
+const crypto = require('crypto');
 const Skyfall = require('@mdbarr/skyfall');
 
 const first = new Skyfall({ api: { port: 0 } });
@@ -79,7 +80,7 @@ describe('Skyfall Mesh Networking Test', () => {
     });
   });
 
-  it('should emit and receive a second event', (done) => {
+  it('should emit and receive a second, large event', (done) => {
     third.events.once('test:2', (event) => {
       expect(event.origin).toBe(second.events.id);
       done();
@@ -87,7 +88,7 @@ describe('Skyfall Mesh Networking Test', () => {
 
     second.events.emit({
       type: 'test:2',
-      data: 'second'
+      data: crypto.randomBytes(4096).toString('hex')
     });
   });
 

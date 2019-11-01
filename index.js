@@ -1,5 +1,7 @@
 'use strict';
 
+require('barrkeep/pp');
+
 const tls = require('tls');
 const async = require('async');
 const crypto = require('crypto');
@@ -55,13 +57,18 @@ function Mesh(skyfall, options) {
     };
 
     skyfall.utils.hidden(connection, 'socket', socket);
+    skyfall.utils.hidden(connection, 'queue', async.queue((data, next) => {
+      connection.socket.write(data, () => {
+        next(null);
+      });
+    }, 1));
 
     skyfall.utils.hidden(connection, 'send', (data) => {
       if (connection.connected) {
         if (data && typeof data === 'object') {
           try {
             data = JSON.stringify(data);
-            connection.socket.write(`${ data }\0` );
+            connection.queue.push(`${ data }\0` );
           } catch (error) {
             console.log('Error in mesh send', error, data);
           }
@@ -139,14 +146,16 @@ function Mesh(skyfall, options) {
       connection.error = error;
     });
 
-    let buf = Buffer.alloc(0);
+    let chunks = [];
     socket.on('data', (data) => {
-      if (!data[data.length - 1] === 0) {
-        buf = Buffer.concat([ buf, data ]);
+      chunks.push(data);
+      if (data[data.length - 1] !== 0) {
         return true;
       }
-      data = Buffer.concat([ buf, data ], buf.length + data.length - 1);
-      buf = Buffer.alloc(0);
+
+      data = Buffer.concat(chunks);
+      data = data.slice(0, data.length - 1);
+      chunks = [];
 
       let message;
       try {

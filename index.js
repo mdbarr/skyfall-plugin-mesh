@@ -58,12 +58,10 @@ function Mesh(skyfall, options) {
 
     skyfall.utils.hidden(connection, 'send', (data) => {
       if (connection.connected) {
-        if (Buffer.isBuffer(data) || typeof data === 'string') {
-          connection.socket.write(data);
-        } else if (data && typeof data === 'object') {
+        if (data && typeof data === 'object') {
           try {
             data = JSON.stringify(data);
-            connection.socket.write(data);
+            connection.socket.write(`${ data }\0` );
           } catch (error) {
             console.log('Error in mesh send', error, data);
           }
@@ -141,7 +139,15 @@ function Mesh(skyfall, options) {
       connection.error = error;
     });
 
+    let buf = Buffer.alloc(0);
     socket.on('data', (data) => {
+      if (!data[data.length - 1] === 0) {
+        buf = Buffer.concat([ buf, data ]);
+        return true;
+      }
+      data = Buffer.concat([ buf, data ], buf.length + data.length - 1);
+      buf = Buffer.alloc(0);
+
       let message;
       try {
         message = JSON.parse(data);

@@ -138,12 +138,20 @@ function Mesh(skyfall, options) {
     });
 
     socket.on('end', () => {
-      connection.stating = 'closing';
+      connection.connected = false;
+      connection.state = 'closing';
     });
 
     socket.on('error', (error) => {
+      connection.connected = false;
       connection.state = 'error';
       connection.error = error;
+
+      skyfall.events.emit({
+        type: 'mesh:peer:error',
+        data: error,
+        source: this.id
+      });
     });
 
     let chunks = [];

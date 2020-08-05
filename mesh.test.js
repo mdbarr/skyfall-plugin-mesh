@@ -12,7 +12,7 @@ const third = new Skyfall({ api: { port: 0 } });
 const config = {
   host: '0.0.0.0',
   port: 7537,
-  secret: uuid()
+  secret: uuid(),
 };
 
 describe('Skyfall Mesh Networking Test', () => {
@@ -27,12 +27,12 @@ describe('Skyfall Mesh Networking Test', () => {
 
     second.mesh.configure({
       ...config,
-      producer: true
+      producer: true,
     });
 
     third.mesh.configure({
       ...config,
-      consumer: true
+      consumer: true,
     });
   });
 
@@ -46,7 +46,7 @@ describe('Skyfall Mesh Networking Test', () => {
   it('should connect the second to the first mesh server', (done) => {
     second.mesh.connect({
       remoteHost: 'localhost',
-      remotePort: 7537
+      remotePort: 7537,
     }, done);
   });
 
@@ -54,7 +54,7 @@ describe('Skyfall Mesh Networking Test', () => {
     third.mesh.connect({
       remoteHost: 'localhost',
       remotePort: 7537,
-      secret: 'foooooo'
+      secret: 'foooooo',
     }, (error) => {
       expect(error).not.toBeNull();
       done();
@@ -64,7 +64,7 @@ describe('Skyfall Mesh Networking Test', () => {
   it('should connect the third to the first mesh server', (done) => {
     third.mesh.connect({
       remoteHost: 'localhost',
-      remotePort: 7537
+      remotePort: 7537,
     }, done);
   });
 
@@ -76,7 +76,7 @@ describe('Skyfall Mesh Networking Test', () => {
 
     second.events.emit({
       type: 'test',
-      data: 'foo'
+      data: 'foo',
     });
   });
 
@@ -88,7 +88,7 @@ describe('Skyfall Mesh Networking Test', () => {
 
     second.events.emit({
       type: 'test:2',
-      data: crypto.randomBytes(4096).toString('hex')
+      data: crypto.randomBytes(4096).toString('hex'),
     });
   });
 
@@ -100,7 +100,7 @@ describe('Skyfall Mesh Networking Test', () => {
 
     second.events.emit({
       type: 'test:3',
-      data: 'third'
+      data: 'third',
     });
   });
 
@@ -112,7 +112,7 @@ describe('Skyfall Mesh Networking Test', () => {
 
     first.events.emit({
       type: 'test:4',
-      data: 'four'
+      data: 'four',
     });
   });
 

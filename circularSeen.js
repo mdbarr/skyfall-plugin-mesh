@@ -1,13 +1,13 @@
 'use strict';
 
-function CircularSeen(capacity = 100) {
+function CircularSeen (capacity = 100) {
   const seen = new Array(capacity);
   const set = new Set();
 
   let start = 0;
   let size = 0;
 
-  this.size = () => { return size; };
+  this.size = () => size;
 
   this.add = (id) => {
     if (start > 0) {
@@ -28,9 +28,7 @@ function CircularSeen(capacity = 100) {
     }
   };
 
-  this.has = (id) => {
-    return set.has(id);
-  };
+  this.has = (id) => set.has(id);
 }
 
 module.exports = CircularSeen;

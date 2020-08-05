@@ -1,6 +1,6 @@
 {
   "name": "@hyperingenuity/skyfall-plugin-mesh",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Skyfall Mesh Networking Plugin",
   "main": "index.js",
   "repository": "git@github.com:mdbarr/skyfall-plugin-mesh.git",

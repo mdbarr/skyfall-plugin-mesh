@@ -12,7 +12,7 @@
     "selfsigned": "^1.10.7"
   },
   "devDependencies": {
-    "@hyperingenuity/skyfall": "^0.3.0",
+    "@hyperingenuity/skyfall": "^0.5.0",
     "barrkeep": "^2.6.1",
     "eslint": "^7.0.0",
     "jest": "^26.0.1",

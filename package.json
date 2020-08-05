@@ -13,10 +13,10 @@
   },
   "devDependencies": {
     "@hyperingenuity/skyfall": "^0.5.0",
-    "barrkeep": "^2.6.1",
-    "eslint": "^7.0.0",
-    "jest": "^26.0.1",
-    "uuid": "^8.0.0"
+    "barrkeep": "^2.6.6",
+    "eslint": "^7.6.0",
+    "jest": "^26.2.2",
+    "uuid": "^8.3.0"
   },
   "scripts": {
     "lint": "eslint --cache index.js circularSeen.js mesh.test.js seen.test.js",

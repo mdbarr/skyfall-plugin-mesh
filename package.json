@@ -1,5 +1,5 @@
 {
-  "name": "@mdbarr/skyfall-plugin-mesh",
+  "name": "@hyperingenuity/skyfall-plugin-mesh",
   "version": "0.2.6",
   "description": "Skyfall Mesh Networking Plugin",
   "main": "index.js",
@@ -12,7 +12,7 @@
     "selfsigned": "^1.10.7"
   },
   "devDependencies": {
-    "@mdbarr/skyfall": "^0.3.0",
+    "@hyperingenuity/skyfall": "^0.3.0",
     "barrkeep": "^2.6.1",
     "eslint": "^7.0.0",
     "jest": "^26.0.1",

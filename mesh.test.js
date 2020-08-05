@@ -1,9 +1,9 @@
 'use strict';
 
 require('barrkeep/pp');
-const uuid = require('uuid/v4');
+const { v4: uuid } = require('uuid');
 const crypto = require('crypto');
-const Skyfall = require('@mdbarr/skyfall');
+const Skyfall = require('@hyperingenuity/skyfall');
 
 const first = new Skyfall({ api: { port: 0 } });
 const second = new Skyfall({ api: { port: 0 } });

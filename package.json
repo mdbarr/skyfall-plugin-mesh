@@ -14,8 +14,8 @@
   "devDependencies": {
     "@hyperingenuity/skyfall": "^0.5.0",
     "barrkeep": "^2.6.6",
-    "eslint": "^7.6.0",
-    "jest": "^26.2.2",
+    "eslint": "^7.8.1",
+    "jest": "^26.4.2",
     "uuid": "^8.3.0"
   },
   "scripts": {

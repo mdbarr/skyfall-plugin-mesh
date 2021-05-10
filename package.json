@@ -9,12 +9,12 @@
   "private": false,
   "dependencies": {
     "async": "^3.2.0",
-    "selfsigned": "^1.10.8"
+    "selfsigned": "^1.10.11"
   },
   "devDependencies": {
     "@hyperingenuity/skyfall": "^0.5.0",
-    "barrkeep": "^2.8.0",
-    "eslint": "^7.16.0",
+    "barrkeep": "^2.10.2",
+    "eslint": "^7.26.0",
     "jest": "^26.6.3",
     "uuid": "^8.3.2"
   },
